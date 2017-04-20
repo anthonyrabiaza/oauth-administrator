@@ -1,0 +1,136 @@
+#%RAML 0.8
+title: OAuth Admin Manager
+version: 1.0
+baseUri: http://localhost:8081/api
+
+/admin:
+  /user:
+    get:
+      queryParameters: 
+        username:
+          type: string
+          required: true       
+      responses: 
+        200: 
+          body: 
+            application/json: 
+              example: |
+                [
+                  {
+                    "apiName" : "Test",
+                    "apiVersion" : "1.0"
+                  },
+                  {
+                    "apiName" : "Test",
+                    "apiVersion" : "1.1"
+                  }
+                ]
+    post:
+      queryParameters: 
+        username:
+          type: string
+          required: true   
+      body: 
+        application/json: 
+          example: |
+            {
+               "apiName" : "Test",
+               "apiVersion" : "1.0"
+            }
+      responses: 
+        200: 
+          body: 
+            application/json: 
+              example: |
+                {
+                  "message" : "membership added"
+                }
+    delete:
+      queryParameters: 
+        username:
+          type: string
+          required: true  
+      body: 
+        application/json: 
+          example: |
+            {
+               "apiName" : "Test",
+               "apiVersion" : "1.0"
+            }
+      responses: 
+        200: 
+          body: 
+            application/json: 
+              example: |
+                {
+                  "message" : "membership removed"
+                }
+    /all:
+      get:    
+        responses: 
+          200: 
+            body: 
+              application/json: 
+                example: |
+                  [
+                    {
+                      "name " : "Kiet Yap",
+                      "username" : "kiet.yap",
+                      "email" : "kiet.yap@mulesoft.com"
+                    }
+                  ]
+  /api:
+    get:
+      queryParameters: 
+        apiName:
+          type: string
+          required: true
+        apiVersion:
+          type: string
+          required: true                   
+      responses: 
+        200: 
+          body: 
+            application/json: 
+              example: |
+                [
+                  {
+                    "member" : "kiet.yap"
+                  },
+                  {
+                    "member" : "kiet.yap"
+                  }
+                ]
+    post:
+      body: 
+        application/json: 
+          example: |
+            {
+               "apiName" : "Test",
+               "apiVersion" : "1.0"
+            }
+      responses: 
+        200: 
+          body: 
+            application/json: 
+              example: |
+                {
+                  "message" : "API added"
+                }  
+    /all:
+      get: 
+        responses: 
+          200: 
+            body: 
+              application/json: 
+                example: |
+                  [
+                    {
+                      "apiName" : "Test",
+                      "apiVersion" : "1.0"
+                    },
+                    {
+                      "apiName" : "Test",
+                      "apiVersion" : "1.1"
+                    }
+                  ]

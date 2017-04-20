@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:api-platform-gw="http://www.mulesoft.org/schema/mule/api-platform-gw" xmlns:context="http://www.springframework.org/schema/context" xmlns:ldap="http://www.mulesoft.org/schema/mule/ldap" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ldap http://www.mulesoft.org/schema/mule/ldap/current/mule-ldap.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/api-platform-gw http://www.mulesoft.org/schema/mule/api-platform-gw/current/mule-api-platform-gw.xsd">
+    <ldap:config name="ldap.config" authDn="${ldap.userDn}" authPassword="${ldap.password}" url="${ldap.url}" doc:name="LDAP: Configuration"/>
+    <context:property-placeholder location="admin.${env}.properties"/>
+    <api-platform-gw:api apiName="${oauth.admin.name}" version="${oauth.admin.version}" flowRef="oauth-administrator-main" create="true" apikitRef="oauth-administrator-config" doc:name="API Autodiscovery"/>
+
+	<!-- Validation endpoint -->
+    <tls:context name="tls.context.listener" doc:name="TLS Context">
+	    <tls:key-store path="${key.store.path}" password="${key.store.password}" keyPassword="${key.store.key.password}"/>
+    </tls:context>
+
+    <http:listener-config name="https.listener"  host="0.0.0.0" port="${https.port}" doc:name="HTTPs Listener Configuration" protocol="HTTPS" tlsContext-ref="tls.context.listener"/>   
+
+</mule>

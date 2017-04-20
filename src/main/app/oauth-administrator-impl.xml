@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:ldap="http://www.mulesoft.org/schema/mule/ldap" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ldap http://www.mulesoft.org/schema/mule/ldap/current/mule-ldap.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <flow name="get:/admin/api/all">
+        <ldap:search config-ref="ldap.config" baseDn="${ldap.group.base}" filter="(businessCategory=API)" scope="SUB_TREE" structuralObjectClass="groupOfUniqueNames" doc:name="LDAP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload map (
+	{
+		apiName: $.'description',
+		apiVersion: $.'cn'
+	}
+)]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/admin/api">
+        <ldap:search config-ref="ldap.config" baseDn="${ldap.org.name},${ldap.group.base}" filter="(&amp;(cn=#[message.inboundProperties.'http.query.params'.apiVersion])(description=#[message.inboundProperties.'http.query.params'.apiName]))" scope="SUB_TREE" structuralObjectClass="groupOfUniqueNames" doc:name="LDAP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+%var members = payload[0].uniqueMember is :string
+---
+	
+payload[0].uniqueMember filter $ != p('ldap.userDn')  map (
+	{
+	member: $
+	}
+) when members != true otherwise 
+[
+	
+]
+	]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="post:/admin/api">
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <enricher target="#[flowVars.result]" doc:name="Message Enricher">
+            <flow-ref name="util:addAPIName" doc:name="util:addAPIName"/>
+        </enricher>
+        <enricher target="#[flowVars.result]" doc:name="Message Enricher">
+            <flow-ref name="util:addAPIVersion" doc:name="util:addAPIVersion"/>
+        </enricher>        
+    </flow>
+    <flow name="util:addAPIName">
+        <scripting:component doc:name="Groovy">
+            <scripting:script engine="Groovy"><![CDATA[import org.mule.module.ldap.api.LDAPEntry;
+
+LDAPEntry entryToAdd = new LDAPEntry("cn="+payload.apiName+","+'${ldap.org.name}'+","+'${ldap.group.base}');
+entryToAdd.addAttribute("objectclass", ["top", "groupOfUniqueNames"]);
+entryToAdd.addAttribute("cn", payload.apiName);
+entryToAdd.addAttribute("uniquemember", "${ldap.userDn}");
+return entryToAdd
+]]></scripting:script>
+        </scripting:component>
+        <ldap:add config-ref="ldap.config" doc:name="LDAP"/>
+        <set-payload value="#['OK']" doc:name="Set Payload"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="#['KO']" doc:name="Set Payload"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="util:addAPIVersion">
+        <scripting:component doc:name="Groovy">
+            <scripting:script engine="Groovy"><![CDATA[import org.mule.module.ldap.api.LDAPEntry;
+
+LDAPEntry entryToAdd = new LDAPEntry("cn="+payload.apiVersion+","+"cn="+payload.apiName+","+'${ldap.org.name}'+","+'${ldap.group.base}');
+entryToAdd.addAttribute("objectclass", ["top", "groupOfUniqueNames"]);
+entryToAdd.addAttribute("cn", payload.apiVersion);
+entryToAdd.addAttribute("businessCategory", "API");
+entryToAdd.addAttribute("description", payload.apiName);
+entryToAdd.addAttribute("uniquemember", "${ldap.userDn}");
+return entryToAdd
+]]></scripting:script>
+        </scripting:component>
+        <ldap:add config-ref="ldap.config" doc:name="LDAP"/>
+        <set-payload value="#['OK']" doc:name="Set Payload"/>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="#['KO']" doc:name="Set Payload"/>
+        </catch-exception-strategy>
+    </flow>
+    <flow name="get:/admin/user/all">
+        <ldap:search config-ref="ldap.config" baseDn="${ldap.user.base}" filter="(cn=*)" structuralObjectClass="inetOrgPerson" doc:name="LDAP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	name: payload01.givenName ++ ' ' ++ payload01.sn,
+	username: payload01.uid,
+	email: payload01.mail
+})]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/admin/user">
+        <ldap:search config-ref="ldap.config" baseDn="${ldap.org.name},${ldap.group.base}" filter="(uniquemember=cn=#[message.inboundProperties.'http.query.params'.username],${ldap.user.base})" scope="SUB_TREE" structuralObjectClass="groupOfUniqueNames" doc:name="LDAP"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+payload map ((payload01 , indexOfPayload01) -> {
+	apiName: payload01.description,
+	apiVersion: payload01.cn
+})]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="post:/admin/user">
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <ldap:add-single-value-attribute config-ref="ldap.config" dn="cn=#[payload.apiVersion],cn=#[payload.apiName],${ldap.org.name},${ldap.group.base}" attributeName="uniquemember" attributeValue="cn=#[message.inboundProperties.'http.query.params'.username],${ldap.user.base}" doc:name="LDAP"/>
+    </flow>
+    <flow name="delete:/admin/user">
+        <json:json-to-object-transformer returnClass="java.util.HashMap" doc:name="JSON to Object"/>
+        <ldap:delete-single-value-attribute config-ref="ldap.config" dn="cn=#[payload.apiVersion],cn=#[payload.apiName],${ldap.org.name},${ldap.group.base}" attributeName="uniquemember" attributeValue="cn=#[message.inboundProperties.'http.query.params'.username],${ldap.user.base}" doc:name="LDAP"/>
+    </flow>
+</mule>
